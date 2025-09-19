@@ -1,0 +1,20 @@
+﻿<html>
+<head><title>CNN 2D - Report</title><style>body{font-family:Arial,Helvetica,sans-serif}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px}</style></head>
+<body>
+<h1>CNN 2D Results</h1>
+<h3>Dataset sizes: Training = 150, Testing = 38</h3>
+<h2>Metrics</h2>
+<table>
+<tr><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>AUC</th></tr>
+<tr><td>0.8421</td><td>0.8421</td><td>1</td><td>0.9143</td><td>0.5104</td></tr>
+</table>
+<h2>Confusion Matrix</h2>
+<table>
+<tr><th></th><th>Predicted Positive</th><th>Predicted Negative</th></tr>
+<tr><th>Actual Positive</th><td>32</td><td>0</td></tr>
+<tr><th>Actual Negative</th><td>6</td><td>0</td></tr>
+</table>
+<h2>ROC Curve</h2>
+<img src="roc_auc.png" alt="ROC curve" />
+</body>
+</html>

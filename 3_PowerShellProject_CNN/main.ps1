@@ -40,10 +40,11 @@ if (Test-Path $odsPath) {
     throw "No dataset found (neither funny.ods nor funny.csv present)"
 }
 
-Write-Host "Loaded $($rows.Count) samples. Using SampleSize=10 and TestSize=0.2"
+$totalSamples = $rows.Count
+Write-Host "Loaded $($rows.Count) samples. Using full sample set ($totalSamples) and TestSize=0.2"
 
-# Use only 10 samples (deterministic by Seed)
-$sampleSize = 10
+# Use full sample set
+$sampleSize = $totalSamples
 $seed = 42
 $rand = New-Object System.Random($seed)
 $indices = 0..($rows.Count - 1) | Sort-Object { $rand.Next() }
@@ -274,6 +275,118 @@ for ($s=0;$s -lt $testReduced.Count;$s++) {
 $yPred = @()
 foreach ($p in $probs) { $yPred += ([int]([math]::Round($p))) }
 
-Write-Host "Computing F1 score..."
+Write-Host "Computing classification metrics..."
 $f1 = Get-F1Score -Predicted $yPred -Actual $yTrue
-Write-Host "F1 score on test set: $f1"
+
+# Compute accuracy, precision, recall, confusion matrix
+function Get-ConfusionMatrix {
+    param([int[]]$Pred,[int[]]$Act,[int]$Positive=1)
+    if ($Pred.Count -ne $Act.Count) { throw 'Pred and Act must match' }
+    $tp=0;$tn=0;$fp=0;$fn=0
+    for ($i=0;$i -lt $Pred.Count;$i++) {
+        if ($Pred[$i] -eq $Positive -and $Act[$i] -eq $Positive) { $tp++ }
+        if ($Pred[$i] -ne $Positive -and $Act[$i] -ne $Positive) { $tn++ }
+        if ($Pred[$i] -eq $Positive -and $Act[$i] -ne $Positive) { $fp++ }
+        if ($Pred[$i] -ne $Positive -and $Act[$i] -eq $Positive) { $fn++ }
+    }
+    return [PSCustomObject]@{TP=$tp;TN=$tn;FP=$fp;FN=$fn}
+}
+
+$conf = Get-ConfusionMatrix -Pred $yPred -Act $yTrue -Positive 1
+$precision = if (($conf.TP + $conf.FP) -eq 0) { 0.0 } else { $conf.TP / ($conf.TP + $conf.FP) }
+$recall = if (($conf.TP + $conf.FN) -eq 0) { 0.0 } else { $conf.TP / ($conf.TP + $conf.FN) }
+$accuracy = if (($yPred.Count) -eq 0) { 0.0 } else { (($conf.TP + $conf.TN) / $yPred.Count) }
+
+Write-Host "Accuracy: $([math]::Round($accuracy,4)), Precision: $([math]::Round($precision,4)), Recall: $([math]::Round($recall,4)), F1: $f1"
+
+# Compute ROC curve and AUC (simple trapezoidal numeric integration)
+function Compute-ROC-AUC {
+    param([double[]]$Scores,[int[]]$Labels,[int]$Positive=1)
+    $pairs = @(for ($i=0;$i -lt $Scores.Count;$i++) { [PSCustomObject]@{Score=$Scores[$i]; Label=$Labels[$i]} })
+    $sorted = $pairs | Sort-Object -Property Score -Descending
+    $P = ($Labels | Where-Object { $_ -eq $Positive }).Count
+    $N = $Labels.Count - $P
+    if ($P -eq 0 -or $N -eq 0) { return [PSCustomObject]@{FPR=@(0); TPR=@(0); AUC=0.0} }
+    $tpr = @(); $fpr = @(); $tp=0; $fp=0; $prevScore = [double]::PositiveInfinity
+    foreach ($item in $sorted) {
+        if ($item.Label -eq $Positive) { $tp++ } else { $fp++ }
+        $tpr += ($tp / $P)
+        $fpr += ($fp / $N)
+    }
+    # add (0,0) at start and (1,1) at end for correct integration
+    $fprFull = ,0.0 + $fpr + ,1.0
+    $tprFull = ,0.0 + $tpr + ,1.0
+    # trapezoidal integration
+    $auc = 0.0
+    for ($i=1;$i -lt $fprFull.Count;$i++) { $dx = $fprFull[$i] - $fprFull[$i-1]; $yavg = ($tprFull[$i] + $tprFull[$i-1]) / 2; $auc += $dx * $yavg }
+    return [PSCustomObject]@{FPR=$fprFull; TPR=$tprFull; AUC=[math]::Round($auc,4)}
+}
+
+$roc = Compute-ROC-AUC -Scores $probs -Labels $yTrue -Positive 1
+Write-Host "AUC: $($roc.AUC)"
+
+# Plot ROC curve to PNG using System.Drawing
+function Save-RocPlot {
+    param([double[]]$FPR,[double[]]$TPR,[double]$AUC,[string]$OutPath)
+    Add-Type -AssemblyName System.Drawing
+    $width = 640; $height=480
+    $bmp = New-Object System.Drawing.Bitmap $width,$height
+    $g = [System.Drawing.Graphics]::FromImage($bmp)
+    $g.Clear([System.Drawing.Color]::White)
+    $penAx = New-Object System.Drawing.Pen([System.Drawing.Color]::Black,2)
+    $g.DrawLine($penAx,50,$height-50,$width-50,$height-50) # x-axis
+    $g.DrawLine($penAx,50,$height-50,50,50) # y-axis
+    # Draw diagonal
+    $penDiag = New-Object System.Drawing.Pen([System.Drawing.Color]::LightGray,1)
+    $g.DrawLine($penDiag,50,$height-50,$width-50,50)
+    # plot ROC
+    $penRoc = New-Object System.Drawing.Pen([System.Drawing.Color]::Blue,2)
+    $n = $FPR.Count
+    if ($n -gt 1) {
+        for ($i=1;$i -lt $n;$i++) {
+            $x1 = 50 + ($FPR[$i-1] * ($width-100))
+            $y1 = ($height-50) - ($TPR[$i-1] * ($height-100))
+            $x2 = 50 + ($FPR[$i] * ($width-100))
+            $y2 = ($height-50) - ($TPR[$i] * ($height-100))
+            $g.DrawLine($penRoc,$x1,$y1,$x2,$y2)
+        }
+    }
+    # Legend / text
+    $font = New-Object System.Drawing.Font('Arial',12)
+    $brush = [System.Drawing.Brushes]::Black
+    $g.DrawString("ROC AUC = $AUC", $font, $brush, 60, 20)
+    $bmp.Save($OutPath,[System.Drawing.Imaging.ImageFormat]::Png)
+    $g.Dispose(); $bmp.Dispose()
+}
+
+$rocPng = Join-Path $PSScriptRoot 'roc_auc.png'
+Save-RocPlot -FPR $roc.FPR -TPR $roc.TPR -AUC $roc.AUC -OutPath $rocPng
+
+# Generate HTML report
+$html = @"
+<html>
+<head><title>CNN 2D - Report</title><style>body{font-family:Arial,Helvetica,sans-serif}table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:6px}</style></head>
+<body>
+<h1>CNN 2D Results</h1>
+<h3>Dataset sizes: Training = $($split.X_train.Count), Testing = $($split.X_test.Count)</h3>
+<h2>Metrics</h2>
+<table>
+<tr><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>AUC</th></tr>
+<tr><td>$([math]::Round($accuracy,4))</td><td>$([math]::Round($precision,4))</td><td>$([math]::Round($recall,4))</td><td>$f1</td><td>$($roc.AUC)</td></tr>
+</table>
+<h2>Confusion Matrix</h2>
+<table>
+<tr><th></th><th>Predicted Positive</th><th>Predicted Negative</th></tr>
+<tr><th>Actual Positive</th><td>$($conf.TP)</td><td>$($conf.FN)</td></tr>
+<tr><th>Actual Negative</th><td>$($conf.FP)</td><td>$($conf.TN)</td></tr>
+</table>
+<h2>ROC Curve</h2>
+<img src="roc_auc.png" alt="ROC curve" />
+</body>
+</html>
+"@
+
+$reportPath = Join-Path $PSScriptRoot 'report.html'
+Set-Content -Path $reportPath -Value $html -Encoding UTF8
+
+Write-Host "Report written to: $reportPath (ROC image: $rocPng)"

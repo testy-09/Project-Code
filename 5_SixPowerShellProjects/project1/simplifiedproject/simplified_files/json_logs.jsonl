@@ -1,0 +1,4 @@
+{"timestamp":"2025-09-19T12:55:44.2713709-04:00","user":"demoUser","data":{"message":"Starting simulated onboarding"},"action":"start"}
+{"timestamp":"2025-09-19T12:55:44.3801918-04:00","user":"demoUser","data":{"destination":"C:\\Users\\Student\\Documents\\Visual Studio Programs\\5_SixPowerShellProjects\\project1\\simplifiedproject\\simplified_files\\simulated_users\\demoUser\\welcome.txt","file":"welcome.txt"},"action":"copy_file"}
+{"timestamp":"2025-09-19T12:55:44.3862017-04:00","user":"demoUser","data":{"simulation":true,"schedule":"daily"},"action":"schedule_cleanup"}
+{"timestamp":"2025-09-19T12:55:44.3986420-04:00","user":"demoUser","data":{"message":"Completed simulated onboarding"},"action":"complete"}

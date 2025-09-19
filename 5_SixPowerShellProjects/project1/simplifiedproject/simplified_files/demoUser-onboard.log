@@ -1,0 +1,12 @@
+2025-09-19T12:51:11.0241744-04:00 - Starting simulated onboarding for user 'demoUser'
+2025-09-19T12:51:11.0501707-04:00 - Copied starter file: welcome.txt to C:\Temp\simulated_users\demoUser\welcome.txt
+2025-09-19T12:51:11.0534355-04:00 - Scheduled simulated daily cleanup (simulation only).
+2025-09-19T12:51:11.0564498-04:00 - Completed simulated onboarding for user 'demoUser'
+2025-09-19T12:53:00.8455814-04:00 - Starting simulated onboarding for user 'demoUser'
+2025-09-19T12:53:00.8794517-04:00 - Copied starter file: welcome.txt to C:\Users\Student\Documents\Visual Studio Programs\5_SixPowerShellProjects\project1\simplifiedproject\simplified_files\simulated_users\demoUser\welcome.txt
+2025-09-19T12:53:00.8841826-04:00 - Scheduled simulated daily cleanup (simulation only).
+2025-09-19T12:53:00.8888025-04:00 - Completed simulated onboarding for user 'demoUser'
+2025-09-19T12:55:44.2566976-04:00 - Starting simulated onboarding for user 'demoUser'
+2025-09-19T12:55:44.3765528-04:00 - Copied starter file: welcome.txt to C:\Users\Student\Documents\Visual Studio Programs\5_SixPowerShellProjects\project1\simplifiedproject\simplified_files\simulated_users\demoUser\welcome.txt
+2025-09-19T12:55:44.3832533-04:00 - Scheduled simulated daily cleanup (simulation only).
+2025-09-19T12:55:44.3946364-04:00 - Completed simulated onboarding for user 'demoUser'
